@@ -53,7 +53,7 @@ products = []
 # Add all products to list
 rows = driver.find_elements(By.CLASS_NAME, 'data-table-row')
 for row in rows:
-    name = row.find_element(By.CLASS_NAME, 'product-title').text
+    name = row.find_element(By.CLASS_NAME, 'product-title').text.lower()
     cart_buttons = row.find_elements(By.CLASS_NAME, 'add-to-cart-button')
     if not cart_buttons:
         continue
@@ -62,24 +62,43 @@ for row in rows:
     product = Product(name=name, price=price, add_to_cart_button=cart_button)
     products.append(product)
 
+def search_item(products) -> Product:
+    items_found = []
+    
+    item_searched = input("Search shop item: ").lower().strip()
+    if item_searched == "":
+        return None
 
-script = """
-var rows = document.getElementsByClassName('data-table-row');
-var data = [];
-for (var i = 0; i < rows.length; i++) {
-    var name = rows[i].getElementsByClassName('product-title')[0].innerText;
-    var price = rows[i].getElementsByClassName('price')[0].innerText;
-    var cartButtons = rows[i].getElementsByClassName('add-to-cart-button');
-    if (cartButtons.length > 0) {
-        cartButton = cartButtons[0];
-        data.push({name: name, price: price, button: button});
-    }
-}
-return data;
+    for product in products:
+        if item_searched in product.name:
+            items_found.append(product)
+
+    if len(items_found) == 1:
+        return items_found[0]
+
+    if len(items_found) == 0:
+        print("No matching item found in shop.")
+    else:
+        print(f"Found {len(items_found)} matching items:")
+        for item in items_found:
+            print(item.name)
+
+    return search_item(products)
+
+
+item = search_item()
+if item:
+    item.button.click()
+    print(f"Adding {item.name} to cart")
+            
+        
+
+
+
+"""
+- add item to cart
+- add multiple items to cart with one request (put number in imp)
 """
 
-
-# for p in products:
-#     print(p.name)
-
+time.sleep(100000)
 driver.quit()
