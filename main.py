@@ -1,5 +1,7 @@
 import my_login
-import selenium
+import shop
+from shop import Product
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
@@ -41,18 +43,43 @@ except Exception as e:
 
 time.sleep(1)
 
-## SHOP
-shop_url = "https://oneup.approach.app/store/shop"
+
+# shop_url = "https://oneup.approach.app/store/shop"
+shop_url = "https://oneup.approach.app/store/shop?locationId=1&searchString=&pageSize=100&page=1&order=ASC&orderBy=name"
 driver.get(shop_url)
 
-shop_items = driver.find_elements(By.XPATH, "//*[contains(@class, 'add-to-cart-button')]")
+products = []
 
-for item in shop_items:
-    time.sleep(1)
-    item.click()
+# Add all products to list
+rows = driver.find_elements(By.CLASS_NAME, 'data-table-row')
+for row in rows:
+    name = row.find_element(By.CLASS_NAME, 'product-title').text
+    cart_buttons = row.find_elements(By.CLASS_NAME, 'add-to-cart-button')
+    if not cart_buttons:
+        continue
+    cart_button = cart_buttons[0]
+    price = row.find_element(By.CLASS_NAME, 'price')
+    product = Product(name=name, price=price, add_to_cart_button=cart_button)
+    products.append(product)
 
-print(shop_items)
 
-time.sleep(10000000)
+script = """
+var rows = document.getElementsByClassName('data-table-row');
+var data = [];
+for (var i = 0; i < rows.length; i++) {
+    var name = rows[i].getElementsByClassName('product-title')[0].innerText;
+    var price = rows[i].getElementsByClassName('price')[0].innerText;
+    var cartButtons = rows[i].getElementsByClassName('add-to-cart-button');
+    if (cartButtons.length > 0) {
+        cartButton = cartButtons[0];
+        data.push({name: name, price: price, button: button});
+    }
+}
+return data;
+"""
+
+
+# for p in products:
+#     print(p.name)
 
 driver.quit()
