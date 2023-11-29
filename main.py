@@ -4,6 +4,9 @@ from shop import Product
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import time
 
 driver = webdriver.Chrome()
@@ -41,17 +44,23 @@ try:
 except Exception as e:
     print("ERROR: Could not set device.")
 
-time.sleep(1)
-
+locator = (By.XPATH, "//span[contains(text(), \"Today's Checkins\")]")
+try:
+    element = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(locator)
+    )
+except TimeoutException:
+    print("ERROR: Unable to load dashboard: Daily checkins not displaying.")
 
 # shop_url = "https://oneup.approach.app/store/shop"
-shop_url = "https://oneup.approach.app/store/shop?locationId=1&searchString=&pageSize=100&page=1&order=ASC&orderBy=name"
+shop_url = "https://oneup.approach.app/store/shop?locationId=1&searchString=&pageSize=10&page=1&order=ASC&orderBy=name"
 driver.get(shop_url)
 
 products = []
 
 # Add all products to list
 rows = driver.find_elements(By.CLASS_NAME, 'data-table-row')
+print("Loading shop products")
 for row in rows:
     name = row.find_element(By.CLASS_NAME, 'product-title').text.lower()
     cart_buttons = row.find_elements(By.CLASS_NAME, 'add-to-cart-button')
@@ -59,8 +68,9 @@ for row in rows:
         continue
     cart_button = cart_buttons[0]
     price = row.find_element(By.CLASS_NAME, 'price')
-    product = Product(name=name, price=price, add_to_cart_button=cart_button)
+    product = Product(name=name, price=price, cart_button=cart_button)
     products.append(product)
+    print(f"\'{product.name}\' added to products.")
 
 def search_item(products) -> Product:
     items_found = []
@@ -68,6 +78,8 @@ def search_item(products) -> Product:
     item_searched = input("Search shop item: ").lower().strip()
     if item_searched == "":
         return None
+    
+    print(f"Item searched: {item_searched}")
 
     for product in products:
         if item_searched in product.name:
@@ -86,18 +98,15 @@ def search_item(products) -> Product:
     return search_item(products)
 
 
-item = search_item()
+item = search_item(products)
 if item:
-    item.button.click()
+    item.cart_button.click()
     print(f"Adding {item.name} to cart")
             
-        
-
-
 
 """
-- add item to cart
-- add multiple items to cart with one request (put number in imp)
+[x] add item to cart 
+[ ] add multiple items to cart with one request (put number in imp)
 """
 
 time.sleep(100000)
