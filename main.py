@@ -1,68 +1,42 @@
-import my_login
-import shop
-from shop import Product
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 import time
+import sys
+import os
+import pickle
+from selenium.webdriver import Chrome
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+import setup_session
+from helper import *
+from shop import *
 
-driver = webdriver.Chrome()
-driver.maximize_window()
+chrome_options = Options()
+chrome_options.add_argument("--window-size=1680,1200")
+driver = Chrome(chrome_options)
+driver.get("http://oneup.approach.app/login")
+    
+if not setup_session.login(driver):
+    sys.exit("Unable to login.")
 
-approach_url = "https://oneup.approach.app/"
-driver.get(approach_url)
+if not setup_session.set_location(driver):
+    sys.exit("Unable to set location.")
 
-driver.implicitly_wait(10)
+if not setup_session.set_device(driver):
+    sys.exit("Unable to set device.")
 
-# Login
-user = driver.find_element(By.ID, 'login-email')
-user.send_keys(my_login.email)
+if not find_element(driver, (By.XPATH, "//span[contains(text(), \"Today's Checkins\")]")):
+    sys.exit("Unable to load dashboard.")
 
-password = driver.find_element(By.ID, 'login-password')
-password.send_keys(my_login.password)
 
-submit_button = driver.find_element(By.CLASS_NAME, 'MuiButton-label')
-submit_button.click()
-
-# Set location
-location_xpath = "//div[contains(@class, 'MuiButtonBase-root') and .//span[text()='One Up Bouldering']]"
-device_xpath = "//ul[contains(@class, 'MuiList-root')]/div[contains(@class, 'MuiButtonBase-root')][1]"
-try:
-    button = driver.find_element(By.XPATH, location_xpath)
-    button.click()
-except Exception as e:
-    print("ERROR: Could not set location.")
-
-# Set device
-device_xpath = "//ul[contains(@class, 'MuiList-root')]/div[contains(@class, 'MuiButtonBase-root')][1]"
-try:
-    button = driver.find_element(By.XPATH, device_xpath)
-    button.click()
-except Exception as e:
-    print("ERROR: Could not set device.")
-
-locator = (By.XPATH, "//span[contains(text(), \"Today's Checkins\")]")
-try:
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(locator)
-    )
-except TimeoutException:
-    print("ERROR: Unable to load dashboard: Daily checkins not displaying.")
-
-# shop_url = "https://oneup.approach.app/store/shop"
-shop_url = "https://oneup.approach.app/store/shop?locationId=1&searchString=&pageSize=10&page=1&order=ASC&orderBy=name"
-driver.get(shop_url)
+SHOP_URL = "https://oneup.approach.app/store/shop?locationId=1&searchString=&pageSize=10&page=1&order=ASC&orderBy=name"
+driver.get(SHOP_URL)
 
 products = []
 
 # Add all products to list
-rows = driver.find_elements(By.CLASS_NAME, 'data-table-row')
-print("Loading shop products")
+rows = find_elements(driver, (By.CLASS_NAME, 'data-table-row'))
+
 for row in rows:
-    name = row.find_element(By.CLASS_NAME, 'product-title').text.lower()
+    name = driver.execute_script("return arguments[0].textContent;", row.find_element(By.CLASS_NAME, 'product-title'))
     cart_buttons = row.find_elements(By.CLASS_NAME, 'add-to-cart-button')
     if not cart_buttons:
         continue
@@ -75,14 +49,14 @@ for row in rows:
 def search_item(products) -> Product:
     items_found = []
     
-    item_searched = input("Search shop item: ").lower().strip()
+    item_searched = input("Search shop item: ").strip()
     if item_searched == "":
         return None
     
     print(f"Item searched: {item_searched}")
 
     for product in products:
-        if item_searched in product.name:
+        if item_searched.lower() in product.name.lower():
             items_found.append(product)
 
     if len(items_found) == 1:
@@ -98,16 +72,56 @@ def search_item(products) -> Product:
     return search_item(products)
 
 
+cart = Cart()
 item = search_item(products)
 if item:
     item.cart_button.click()
-    print(f"Adding {item.name} to cart")
+    print(f"Adding '{item.name}' to cart")
+    cart.add(driver, item)
+
+cart.update_qty(driver, item, 3)
+cart.update_qty(driver, item, 5)
             
 
 """
 [x] add item to cart 
-[ ] add multiple items to cart with one request (put number in imp)
+[ ] wait for item to be ready before next action
+[ ] add multiple items to cart one at a time (must wait for prev item to appear before next click)
+[ ] update qty of an item in the cart
 """
 
 time.sleep(100000)
 driver.quit()
+
+
+
+"""
+NOTES:
+- not bothering to error check atm for if add to cart is successful
+    prev check for add new item to cart: find_element(driver, (By.XPATH, f"//div[@class='cart-item']//span[@class='item-name' and contains(text(), '{product.name}')]"))
+
+
+TO DO (SUGGESTION):
+- Decide whether to store add to cart buttons immediately upon loading shop or one at a time as needed when product is added to cart.
+- Locate and store the cart item element in cart item once an item has been added to cart
+    - Advantages:
+        - reduces time to update item qty
+        - potentially can try to implement this to run in background while still accepting user input 
+    - Disadvantges:
+        - extra time to add item to cart
+        - may not be worth it if most items don't get qty update
+        
+"""
+
+
+
+'''
+- element to update qty of cart item (contains +- buttons and number input field)
+    class="cart-item-col item-ticker"
+    
+    
+    I ran 'pip install mypy' and I believe it has installed to python3.11, however visual studio code shows that my global python interpreter is python3.12
+    
+    
+'''
+
